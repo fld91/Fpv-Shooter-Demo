@@ -251,13 +251,25 @@ export class CharacterController {
       // Reverting to box bounds to save FPS
       const potentialPos = this.position.clone().addScaledVector(moveDir, this.speed * dt);
       
-      // Box Room Bounds (-4.5 to 4.5)
-      const bound = 4.5;
-      potentialPos.x = Math.max(-bound, Math.min(bound, potentialPos.x));
-      potentialPos.z = Math.max(-bound, Math.min(bound, potentialPos.z)); 
+      // Box Room Bounds (-3.5 to 3.5) - Tightened Further
+      const bound = 3.5;
       
-      // Only apply horizontal if we didn't hit a "wall" (the bound)
-      // Actually the clamp above handles it perfectly.
+      // Check Door (Z Axis Ends)
+      if (Math.abs(potentialPos.x) > bound || Math.abs(potentialPos.z) > bound) {
+          console.log("Wall Hit Detected at", potentialPos); 
+          hitWall = true;
+          this.audio.playDoorLocked();
+      }
+      
+      // Check Photo Corner (Back Right: X > 2, Z < -2)
+      if (potentialPos.x > 2.0 && potentialPos.z < -2.0) {
+          this.audio.playLaugh();
+      }
+      
+      // Clamp
+      potentialPos.x = Math.max(-bound, Math.min(bound, potentialPos.x));
+      potentialPos.z = Math.max(-bound, Math.min(bound, potentialPos.z));  
+      
       this.position.x = potentialPos.x;
       this.position.z = potentialPos.z;
 
@@ -355,9 +367,81 @@ export class CharacterController {
       
       // Impact 
       if (hitObject) {
-          this._createImpactEffect(targetPoint, hitNormal);
+          if (hitObject.userData && hitObject.userData.breakable) {
+              this._breakObject(hitObject, targetPoint);
+          } else {
+              this._createImpactEffect(targetPoint, hitNormal);
+          }
       }
   }
+  
+  _breakObject(obj, pos) {
+      if (obj.userData.type === 'light') {
+          // Break Light
+          this.scene.remove(obj); // Remove bulb
+          if (obj.userData.linkedLight) {
+              obj.userData.linkedLight.intensity = 0.1; // Dim active, or remove
+              this.scene.remove(obj.userData.linkedLight);
+          }
+          
+          // Glass shards effect
+          for(let i=0; i<10; i++) {
+              this._createDebris(pos, 0xffeeaa, 0.05);
+          }
+          this._createImpactEffect(pos, new THREE.Vector3(0, -1, 0)); // Sparks
+          
+      } else if (obj.userData.type === 'crate') {
+          // Break Crate
+          this.scene.remove(obj);
+          obj.geometry.dispose();
+          obj.material.dispose();
+          
+          // Wood debris
+          for(let i=0; i<8; i++) {
+              this._createDebris(pos, 0x8b4513, 0.15);
+          }
+          // Remove from collision check list if we had one (Using scene.children currently so auto-updates)
+      }
+  }
+  
+  _createDebris(pos, color, size) {
+      const geo = new THREE.BoxGeometry(size, size, size);
+      const mat = new THREE.MeshBasicMaterial({ color: color });
+      const mesh = new THREE.Mesh(geo, mat);
+      
+      mesh.position.copy(pos);
+      // Random velocity spread
+      mesh.position.x += (Math.random() - 0.5) * 0.5;
+      mesh.position.y += (Math.random() - 0.5) * 0.5;
+      mesh.position.z += (Math.random() - 0.5) * 0.5;
+      
+      this.scene.add(mesh);
+      
+      // Simple physics animation for debris
+      const velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 4,
+          Math.random() * 4,
+          (Math.random() - 0.5) * 4
+      );
+      
+      let life = 1.0;
+      const animate = () => {
+          life -= 0.02;
+          velocity.y -= 0.2; // Gravity
+          mesh.position.addScaledVector(velocity, 0.016);
+          mesh.rotation.x += 0.1;
+          
+          if (life <= 0 || mesh.position.y < 0) {
+              this.scene.remove(mesh);
+              geo.dispose();
+              mat.dispose();
+          } else {
+              requestAnimationFrame(animate);
+          }
+      };
+      animate();
+  }
+
   
   _createTracer(start, end) {
       // Glowing Line

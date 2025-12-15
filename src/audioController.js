@@ -70,22 +70,66 @@ export class AudioController {
     }
     
     playIntro() {
-        if (this.introPlayed) return; // Run only once
+        if (this.introPlayed) return; 
         this.introPlayed = true;
-
+        
+        const text = "Welcome to the game.";
+        this.speak(text, 1.0, 0.8, true); // Deep-ish
+    }
+    
+    playDoorLocked() {
+        const now = performance.now();
+        if (this.doorTimer && now - this.doorTimer < 5000) return; 
+        this.doorTimer = now;
+        
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        
+        const text = "Door is locked. Access denied.";
+        this.speak(text, 0.5, 0.8, true);
+    }
+    
+    playLaugh() {
+        const now = performance.now();
+        if (this.laughTimer && now - this.laughTimer < 10000) return; // 10s cooldown
+        this.laughTimer = now;
+        
+        const text = "Ha ha ha ha...";
+        // High pitch female preference
+        this.speak(text, 1.8, 0.9, false); 
+    }
+    
+    speak(text, pitch, rate, preferMale) {
+        this.showCaption(text);
+        
         if ('speechSynthesis' in window) {
-            const utter = new SpeechSynthesisUtterance("System Online. Welcome to the simulation. Eliminate all targets.");
-            utter.pitch = 0.1; // Deepest possible
-            utter.rate = 0.5; // Very slow and menacing
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.pitch = pitch; 
+            utter.rate = rate; 
             utter.volume = 1.0;
             
-            // Try to select a deep voice if available
             const voices = window.speechSynthesis.getVoices();
-            // Look for "Google US English" or similar which are usually good, or just first available
-            const deepVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Male"));
-            if (deepVoice) utter.voice = deepVoice;
+            let voice = null;
+            if (preferMale) {
+                voice = voices.find(v => v.name.includes("Male") || v.name.includes("Google US English"));
+            } else {
+                 voice = voices.find(v => v.name.includes("Female") || v.name.includes("Google UK English Female"));
+            }
+            if (voice) utter.voice = voice;
 
             window.speechSynthesis.speak(utter);
+            
+            // Hide caption after duration approx
+            setTimeout(() => {
+                this.showCaption("");
+            }, text.length * 100 + 1000);
+        }
+    }
+    
+    showCaption(text) {
+        const el = document.getElementById('caption');
+        if (el) {
+            el.innerText = text;
+            el.style.opacity = text ? 1 : 0;
         }
     }
 

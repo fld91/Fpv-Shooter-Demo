@@ -69,9 +69,8 @@ export const setupScene = (container) => {
   
   positions.forEach(pos => {
       // Light
-      const pl = new THREE.PointLight(ceilingLightColor, 3.0, 12); // Increased intensity + range
+      const pl = new THREE.PointLight(ceilingLightColor, 3.0, 12); 
       pl.position.copy(pos);
-      // pl.castShadow = true; // Optional: Expensive for multiple lights
       scene.add(pl);
       
       // Visual Bulb
@@ -79,7 +78,38 @@ export const setupScene = (container) => {
       const bulbMat = new THREE.MeshBasicMaterial({ color: ceilingLightColor });
       const bulb = new THREE.Mesh(bulbGeo, bulbMat);
       bulb.position.copy(pos);
+      
+      // Setup Breakable Data
+      bulb.userData = { 
+          type: 'light', 
+          linkedLight: pl,
+          breakable: true 
+      };
+      
       scene.add(bulb);
+  });
+  
+  // 9. Procedural Breakable Crates
+  const crateGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+  const crateMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.9 }); // Wood
+  
+  const cratePositions = [
+      new THREE.Vector3(2, 0.25, 2),
+      new THREE.Vector3(-2, 0.25, -2),
+      new THREE.Vector3(2.5, 0.25, -1),
+      new THREE.Vector3(-1.5, 1.25, -2.5) // Stacked?
+  ];
+  
+  cratePositions.forEach(p => {
+      const crate = new THREE.Mesh(crateGeo.clone(), crateMat); // Clone geo for independent destruction
+      crate.position.copy(p);
+      crate.castShadow = true;
+      crate.receiveShadow = true;
+      crate.userData = { 
+          type: 'crate', 
+          breakable: true 
+      };
+      scene.add(crate);
   });
 
   // 9. Basic Environment (Shooting Range Shell)
