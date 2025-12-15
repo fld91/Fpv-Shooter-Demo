@@ -29,6 +29,65 @@ export class AudioController {
              setTimeout(() => this.play('thunder'), 200 + Math.random() * 500); 
         });
     }
+    
+    startAmbience() {
+        if (!this.ctx || this.ambienceStarted) return;
+        this.ambienceStarted = true;
+        
+        // Dark Drone: 3 Oscillators (Low frequency)
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const osc3 = this.ctx.createOscillator();
+        
+        osc1.type = 'sawtooth';
+        osc1.frequency.value = 50;
+        
+        osc2.type = 'sine';
+        osc2.frequency.value = 52; // Beat freq
+        
+        osc3.type = 'triangle';
+        osc3.frequency.value = 110; 
+
+        // Gain/Mix
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0.05; // Quiet background
+        
+        // Filter
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 200; // Muffled
+        
+        osc1.connect(gain);
+        osc2.connect(gain);
+        osc3.connect(gain);
+        
+        gain.connect(filter);
+        filter.connect(this.masterGain);
+        
+        osc1.start();
+        osc2.start();
+        osc3.start();
+    }
+    
+    playIntro() {
+        if (this.introPlayed) return; // Run only once
+        this.introPlayed = true;
+
+        if ('speechSynthesis' in window) {
+            const utter = new SpeechSynthesisUtterance("System Online. Welcome to the simulation. Eliminate all targets.");
+            utter.pitch = 0.1; // Deepest possible
+            utter.rate = 0.5; // Very slow and menacing
+            utter.volume = 1.0;
+            
+            // Try to select a deep voice if available
+            const voices = window.speechSynthesis.getVoices();
+            // Look for "Google US English" or similar which are usually good, or just first available
+            const deepVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Male"));
+            if (deepVoice) utter.voice = deepVoice;
+
+            window.speechSynthesis.speak(utter);
+        }
+    }
 
     async _loadBuf(url) {
         const res = await fetch(url);

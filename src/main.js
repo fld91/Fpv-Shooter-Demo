@@ -45,6 +45,21 @@ const init = async () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   });
+  
+  // Interaction Start
+  const onStart = () => {
+      document.body.requestPointerLock();
+      if (characterController && characterController.audio) {
+          characterController.audio.ctx.resume();
+          characterController.audio.startAmbience();
+          
+          // Delayed Intro (2 seconds)
+          setTimeout(() => {
+               characterController.audio.playIntro();
+          }, 2000);
+      }
+  };
+  document.addEventListener('click', onStart);
 };
 
 init();
