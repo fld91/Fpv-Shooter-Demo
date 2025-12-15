@@ -28,6 +28,14 @@
 - **Text-to-Speech Intro**: System voice "Welcome" message generated via Web Speech API.
 - **Thunder System**: Randomized thunder cracks synced with lighting flashes.
 
+## 🖼️ Game Visuals
+
+![Room Ambience](public/screenshot_ambience.png)
+_Atmospheric Room with Paintings and Soldier_
+
+![Destruction Detail](public/screenshot_destruction.png)
+_Detail of Bullet Holes and Lighting_
+
 ## 🕹️ Controls
 
 | Key                    | Action                      |
