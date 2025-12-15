@@ -1,0 +1,103 @@
+export class AudioController {
+    constructor(camera) {
+        this.camera = camera;
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.sounds = {};
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.5;
+        this.masterGain.connect(this.ctx.destination);
+    }
+
+    async load() {
+        // Load real assets
+        try {
+            this.sounds['gunshot'] = await this._loadBuf('/sounds/gunshot.wav');
+            this.sounds['walk'] = await this._loadBuf('/sounds/walk.wav');
+        } catch (e) {
+            console.error("Audio Load Error", e);
+            // Fallback
+            this.sounds['gunshot'] = this._createImpulseBuffer();
+            this.sounds['walk'] = this._createNoiseBuffer(0.1);
+        }
+        
+        // Keep procedural defaults/extras
+        this.sounds['reload'] = this._createNoiseBuffer(0.5);
+        this.sounds['thunder'] = this._createThunderBuffer();
+        
+        window.addEventListener('lightning-strike', () => {
+             // Delay event slightly for distance?
+             setTimeout(() => this.play('thunder'), 200 + Math.random() * 500); 
+        });
+    }
+
+    async _loadBuf(url) {
+        const res = await fetch(url);
+        const arrayBuf = await res.arrayBuffer();
+        return await this.ctx.decodeAudioData(arrayBuf);
+    }
+
+    // Procedural sound generation for fallback
+    _createImpulseBuffer() {
+        const sr = this.ctx.sampleRate;
+        const length = sr * 0.2; // 0.2 seconds
+        const buffer = this.ctx.createBuffer(1, length, sr);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < length; i++) {
+            // Decaying noise
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 4);
+        }
+        return buffer;
+    }
+
+    _createNoiseBuffer(duration) {
+         const sr = this.ctx.sampleRate;
+         const length = sr * duration;
+         const buffer = this.ctx.createBuffer(1, length, sr);
+         const data = buffer.getChannelData(0);
+         for (let i = 0; i < length; i++) {
+             data[i] = (Math.random() * 2 - 1);
+         }
+         return buffer;
+    }
+    
+    _createThunderBuffer() {
+         const sr = this.ctx.sampleRate;
+         const length = sr * 3.0; // 3 seconds rumble
+         const buffer = this.ctx.createBuffer(1, length, sr);
+         const data = buffer.getChannelData(0);
+         for (let i = 0; i < length; i++) {
+             // Low frequency noise capability (simple random with smoothing?)
+             // Simple: White noise then we'll filter it in the play method or just make 'brown' noise here
+             const white = Math.random() * 2 - 1;
+             data[i] = white * Math.pow(1 - i / length, 2); // decay
+         }
+         return buffer;
+    }
+
+    play(name) {
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+
+        if (this.sounds[name]) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.sounds[name];
+            
+            // Create a filter for thunder
+            if (name === 'thunder') {
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+                source.connect(filter);
+                filter.connect(this.masterGain);
+            } else {            
+                source.connect(this.masterGain);
+            }
+            
+            // Randomized pitch for realism
+            source.playbackRate.value = 0.9 + Math.random() * 0.2;
+            
+            source.start();
+        }
+    }
+}
